@@ -42,6 +42,8 @@
 - V6OC 為 Focal Loss 在長尾 ICD-10 分類上的首次嘗試，具有技術探索價值
 
 Focal Loss 是處理 2,099 labels 長尾分佈的重要技術選項，即使 V6OC 成績低於 V6（BCE），其作為 negative/discovery result 仍具學術記錄價值。目前報告完全未提及此實驗線。
+1.2.3.
+
 
 > **建議**：若報告篇幅允許，可在實驗設計章節補充 V6OC 作為 ablation variant，對比 BCE vs Focal Loss 在此任務上的效果差異。
 
