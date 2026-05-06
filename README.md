@@ -1,81 +1,77 @@
-# ICD-10 Automatic Coding via DR-CAML with Semantic Compensation
+# ICD-10 自動編碼：基於 DR-CAML 與語意補償機制的極端多標籤分類
 
-> 東海大學資訊工程學系 畢業專題  
-> 指導教授：[待填]  
-> 學生：劉晏呈  
+> 台灣台中榮民總醫院臨床病歷訓練 · MIMIC-IV 驗證  
 > 2025-2026
 
 ---
 
-## Overview
+## 概述
 
-Automated ICD-10 coding from clinical discharge summaries using **DR-CAML** (Description Regularized Convolutional Attention for Multi-Label Classification), trained on Taiwan Veterans General Hospital (台中榮總) data with validation on MIMIC-IV.
+基於 **DR-CAML**（Description Regularized Convolutional Attention for Multi-Label Classification）架構，從出院摘要自動預測 ICD-10 疾病代碼。核心貢獻：
 
-**Core contributions:**
+- **東海標準清洗法**：F-code 去除 + 四碼截斷 + MIN_FREQ 過濾，將標籤空間從 14,789 降至 2,099
+- **Focal Loss + Description Regularization**：λ=0.1 搭配 Focal Loss（γ=2），Macro F1 較 BCE baseline 提升 6%
+- **Threshold 校準**：證明多標籤場景下 threshold 0.3-0.4 優於預設 0.5
+- **Domain Gap 量化**：MIMIC-IV 與台灣病歷的文本長度差異（中位數 3,207 vs 422 tokens）
 
-- **Tunghai Standard Cleaning** (東海標準清洗法): F-code removal + 4-digit code truncation + MIN_FREQ filtering → reduces label space from 14,789 to 2,099
-- **DR-CAML with Focal Loss**: Focal Loss + λ=0.1 Description Regularization improves Macro F1 by 6% over BCE baseline
-- **Threshold calibration**: Demonstrated threshold 0.3-0.4 outperforms default 0.5 for extreme multi-label ICD coding
-- **Domain gap analysis**: Quantified MIMIC-IV vs Taiwan hospital text length disparity (3,207 vs 422 median tokens)
+## 主要結果
 
-## Key Results
-
-| Model | Dataset | Micro F1 | Macro F1 | Notes |
+| 模型 | 資料集 | Micro F1 | Macro F1 | 備註 |
 |---|---|---|---|---|
-| V5.1 | Taiwan Hospital | 65.40% | 21.93% | BERT [CLS], optimal TH=0.3 |
-| V6 | Taiwan Hospital | **67.27%** | **38.42%** | BERT DR-CAML, λ=0.01 |
-| V6OC | Taiwan Hospital | 61.81% | 28.06% | DR-CAML + Focal Loss + λ=0.1, optimal TH=0.4 |
-| V6.4 | MIMIC-IV | 41.44% | 7.03% | DR-CAML on cleaned MIMIC |
+| V5.1 | 台中榮總 | 65.40% | 21.93% | BERT [CLS]，最優 TH=0.3 |
+| V6 | 台中榮總 | **67.27%** | **38.42%** | BERT DR-CAML，λ=0.01 |
+| V6OC | 台中榮總 | 61.81% | 28.06% | DR-CAML + Focal Loss + λ=0.1，最優 TH=0.4 |
+| V6.4 | MIMIC-IV | 41.44% | 7.03% | DR-CAML on 清洗後 MIMIC |
 
-## Data Pipeline
-
-```
-Raw Hospital Records (2015-2022)
-    │
-    ▼ V2: 14,789 labels (MIN_FREQ=1)
-    │
-    ▼ V4: 14,219 labels (F-codes removed)
-    │
-    ▼ V5: 2,099 labels (4-code truncation + MIN_FREQ=50)
-    │
-    ▼ V6: DR-CAML trained on V5 data
-```
-
-## Architecture: DR-CAML
+## 資料管線
 
 ```
-Clinical Note ──→ Bio_ClinicalBERT ──→ H ∈ R^(seq×768)
-                                            │
-                                    Label-Aware Attention
-                                            │
-                                    V ∈ R^(num_labels×768)
-                                            │
-                            ┌───────────────┴───────────────┐
-                            │                               │
-                     out_weights · V              ||out_weights - target_emb||²
-                     → BCE / Focal Loss           → MSE Regularization (λ)
+原始病歷 (2015-2022)
+    │
+    ▼ V2: 14,789 labels (MIN_FREQ=1，無過濾)
+    │
+    ▼ V4: 14,219 labels (去除 F-code)
+    │
+    ▼ V5: 2,099 labels (四碼截斷 + MIN_FREQ=50)
+    │
+    ▼ V6: DR-CAML 訓練於 V5 資料
 ```
 
-- **Label-Aware Attention**: Each ICD code learns to attend to different parts of the clinical note
-- **Description Regularization**: Model's classifier weights are pulled toward Bio_ClinicalBERT embeddings of ICD code descriptions
-- **Focal Loss** (γ=2): Down-weights easy negatives, forcing model to focus on rare diseases
+## 架構：DR-CAML
 
-## Reproducibility
+```
+臨床病歷 ──→ Bio_ClinicalBERT ──→ H ∈ R^(seq×768)
+                                        │
+                              Label-Aware Attention
+                                        │
+                              V ∈ R^(num_labels×768)
+                                        │
+                        ┌───────────────┴───────────────┐
+                        │                               │
+                 out_weights · V              ||out_weights - target||²
+                 → BCE / Focal Loss           → MSE Regularization (λ)
+```
 
-### Requirements
+- **Label-Aware Attention**：每個 ICD 代碼學會關注病歷的不同段落
+- **Description Regularization**：分類器權重被拉向 ICD 代碼官方描述的 Bio_ClinicalBERT embedding
+- **Focal Loss**（γ=2）：抑制易分類負樣本的 loss，強迫模型關注罕見疾病
+
+## 重現步驟
+
+### 環境需求
 
 - Python 3.10+
-- PyTorch 2.x, Transformers, scikit-learn
-- GPU: 12GB+ VRAM (tested on RTX 8000-12Q)
+- PyTorch 2.x、Transformers、scikit-learn
+- GPU：12GB+ VRAM（於 RTX 8000-12Q 測試）
 
-### Training
+### 訓練
 
 ```bash
 cd src
-python train_v6oc.py  # DR-CAML + Focal Loss, 2099 labels
+python train_v6oc.py  # DR-CAML + Focal Loss，2,099 labels
 ```
 
-### Evaluation
+### 評估
 
 ```bash
 python universal_evaluator.py \
@@ -86,28 +82,35 @@ python universal_evaluator.py \
     --embeddings v5_label_embeddings.pt
 ```
 
-## File Structure
+## 目錄結構
 
 ```
-├── src/                    # Training and evaluation scripts
-│   ├── train_v6oc.py       # DR-CAML + Focal Loss trainer
-│   ├── universal_evaluator.py
-│   └── build_mf20_data.py
-├── data/                   # Preprocessed datasets
-├── results/                # Model checkpoints and predictions
-├── docs/                   # Documentation
-│   └── ABLATION_FINAL.md   # Ablation study results
+├── src/                         # 訓練與評估腳本
+│   ├── train_v6oc.py            # DR-CAML + Focal Loss
+│   ├── train_v6oc_1024.py       # 1024-token 版本
+│   ├── train_v5_1_bert_cls.py   # BERT [CLS] baseline
+│   ├── train_v3_longformer.py   # Longformer 實驗
+│   ├── train_v6_4_drcaml_mimic.py  # MIMIC-IV 版本
+│   ├── universal_evaluator.py   # 通用評估器
+│   ├── build_mf20_data.py       # MF20 資料建構
+│   ├── build_v5_cleaned.py      # V5 清洗管線
+│   └── step7_prep_mimic_iv.py   # MIMIC-IV 前處理
+├── docs/
+│   ├── ABLATION_FINAL.md        # Ablation study
+│   └── AUDIT_REPORT.md          # 實驗審計報告
+├── results/
+│   └── experiment_tracker.csv   # 實驗追蹤
 └── README.md
 ```
 
-## Academic References
+## 參考文獻
 
-- Mullenbach et al. (2018). "Explainable Prediction of Medical Codes from Clinical Text." *NAACL*. — CAML/DR-CAML architecture
-- Lin et al. (2017). "Focal Loss for Dense Object Detection." *ICCV*. — Focal Loss
-- Li & Yu (2020). "Multi-Filter Residual Convolutional Neural Network for Text Classification." — MultiResCNN
-- Vu et al. (2020). "A Label Attention Model for ICD Coding from Clinical Text." *IJCAI*. — LAAT
-- PLM-ICD (2022). "PLM-ICD: Automatic ICD Coding with Pretrained Language Models." *ClinicalNLP*. — Segment pooling for long documents
+- Mullenbach et al. (2018). "Explainable Prediction of Medical Codes from Clinical Text." *NAACL*.
+- Lin et al. (2017). "Focal Loss for Dense Object Detection." *ICCV*.
+- Li & Yu (2020). "Multi-Filter Residual CNN for Text Classification."
+- Vu et al. (2020). "A Label Attention Model for ICD Coding." *IJCAI*.
+- PLM-ICD (2022). "Automatic ICD Coding with Pretrained Language Models." *ClinicalNLP*.
 
-## License
+## 授權
 
-[待定]
+MIT
