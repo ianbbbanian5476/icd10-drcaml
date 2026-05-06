@@ -1,0 +1,26 @@
+# Model weights
+*.pth
+*.pt
+*.bin
+*.safetensors
+
+# Data files (may contain patient info)
+*.json
+*.csv
+!experiment_tracker.csv
+
+# Logs
+*.log
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+med_env/
+
+# System
+.DS_Store
+nohup.out
+
+# Large outputs
+*.npy
