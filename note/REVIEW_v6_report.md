@@ -8,7 +8,7 @@
 
 ## 整體評價
 
-報告結構完整、敘事邏輯清晰、文獻引用紮實（21 篇，含 CAML / PLM-ICD / Longformer / Gradient Checkpointing），三階段實驗演進的敘事架構具說服力。然而與實際實驗數據比對後，存在數個需要釐清的問題。
+報告結構完整、敘事邏輯清晰、文獻引用紮實（21 篇，含 CAML / PLM-ICD / Longformer / Gradient Checkpointing ），三階段實驗演進的敘事架構具說服力。然而與實際實驗數據比對後，存在數個需要釐清的問題。
 
 ---
 
