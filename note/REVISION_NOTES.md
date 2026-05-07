@@ -47,20 +47,20 @@
 
 ### 2.1 Notation Table（建議插入 3.2 節前）
 
-| Symbol | Definition |
-|--------|-----------|
-| $\mathcal{D} = \{(\mathbf{x}_i, \mathbf{y}_i)\}_{i=1}^{N}$ | Training set of $N$ clinical notes |
-| $\mathbf{x}_i$ | Tokenized input sequence, $|\mathbf{x}_i| \leq 512$ |
-| $\mathbf{y}_i \in \{0,1\}^{L}$ | Multi-hot label vector, $L = 2099$ |
-| $L$ | Number of unique ICD-10 codes (after filtering) |
-| $d = 768$ | Hidden size of Bio_ClinicalBERT |
-| $\mathbf{H} \in \mathbb{R}^{n \times d}$ | BERT last hidden states ($n$ = sequence length) |
-| $A \in \mathbb{R}^{n \times L}$ | Label-wise attention weights |
-| $\mathbf{V} \in \mathbb{R}^{L \times d}$ | Label-specific feature matrix |
-| $\mathbf{W} \in \mathbb{R}^{L \times d}$ | Learnable classification weight matrix |
-| $\mathbf{E} \in \mathbb{R}^{L \times d}$ | Pre-computed label description embeddings (frozen) |
-| $\lambda$ | Regularization coefficient |
-| $\hat{\mathbf{y}}_i = \sigma(\mathbf{z}_i)$ | Predicted probabilities, $\sigma$ = sigmoid |
+| Symbol | Definition（EN） | 定義（中文） |
+|--------|-----------|-----------|
+| $\mathcal{D} = \{(\mathbf{x}_i, \mathbf{y}_i)\}_{i=1}^{N}$ | Training set of $N$ clinical notes | $N$ 筆病歷之訓練集 |
+| $\mathbf{x}_i$ | Tokenized input sequence, $\|\mathbf{x}_i\| \leq 512$ | 斷詞後之輸入序列，長度 ≤ 512 |
+| $\mathbf{y}_i \in \{0,1\}^{L}$ | Multi-hot label vector, $L = 2099$ | 多標籤向量（0/1），共 2,099 維 |
+| $L$ | Number of unique ICD-10 codes (after filtering) | 篩選後之 ICD-10 代碼總數 |
+| $d = 768$ | Hidden size of Bio_ClinicalBERT | BERT 隱藏層維度 |
+| $\mathbf{H} \in \mathbb{R}^{n \times d}$ | BERT last hidden states ($n$ = sequence length) | BERT 最終層輸出矩陣 |
+| $A \in \mathbb{R}^{n \times L}$ | Label-wise attention weights | 各標籤對各 token 之注意力權重 |
+| $\mathbf{V} \in \mathbb{R}^{L \times d}$ | Label-specific feature matrix | 各標籤從病歷中擷取之特徵向量 |
+| $\mathbf{W} \in \mathbb{R}^{L \times d}$ | Learnable classification weight matrix | 可學習之分類權重矩陣 |
+| $\mathbf{E} \in \mathbb{R}^{L \times d}$ | Pre-computed label description embeddings (frozen) | 預先計算之標籤描述嵌入（凍結，不參與梯度更新） |
+| $\lambda$ | Regularization coefficient | 正則化係數（控制語意引導強度） |
+| $\hat{\mathbf{y}}_i = \sigma(\mathbf{z}_i)$ | Predicted probabilities, $\sigma$ = sigmoid | 預測機率，$\sigma$ 為 sigmoid 函數 |
 
 ### 2.2 DR-CAML 架構數學化
 
