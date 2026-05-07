@@ -165,6 +165,32 @@ $$\boxed{\mathcal{L}_{\text{MF20}} = \mathcal{L}_{\text{Focal}}(\hat{\mathbf{y}}
 | V6OC | **Focal** (γ=2) | 0.10 | 2,099 | Focal 處理長尾 + 強語意引導 |
 | MF20 | **Focal** (γ=2) | 0.10 | 2,873 | 同 V6OC，測試 label 空間擴張 |
 
+#### 與原始 DR-CAML（Mullenbach et al., 2018）之 Loss 設計差異
+
+原始 DR-CAML 論文中，標籤描述文字在訓練過程中**即時參與計算**：
+
+$$\mathbf{v}_l^{\text{desc}} = \text{CNN}(\text{description}_l)$$
+
+$$\mathcal{L}_{\text{orig}} = \mathcal{L}_{\text{BCE}} + \lambda \cdot \text{cosine\_distance}(\mathbf{v}_l^{\text{clinical}}, \mathbf{v}_l^{\text{desc}})$$
+
+即每步訓練需將 $L$ 段標籤描述送進 CNN 編碼，與病歷表徵 $\mathbf{v}_l^{\text{clinical}}$ 做對比（contrastive）。
+
+**我們的簡化**：
+
+$$\mathbf{E}_l = \text{ClinicalBERT}(\text{description}_l) \quad \text{（事先計算，訓練中凍結）}$$
+
+$$\mathcal{L}_{\text{ours}} = \mathcal{L}_{\text{BCE/Focal}} + \lambda \cdot \underbrace{\frac{1}{L}\|\mathbf{W} - \mathbf{E}\|_F^2}_{\text{MSE on classification weights}}$$
+
+| | 原始 DR-CAML | 本研究 |
+|------|------|------|
+| 描述參與時機 | 每個 batch 即時編碼 | 訓練前一次計算，凍結 |
+| 對齊對象 | $\mathbf{v}_l$（每標籤的病歷特徵）vs 描述特徵 | $\mathbf{W}$（分類權重層）vs $\mathbf{E}$ |
+| 對齊方式 | cosine distance / contrastive | $\|\mathbf{W} - \mathbf{E}\|_F^2$（MSE） |
+| 每步運算量 | $\mathcal{O}(L \cdot \text{CNN})$ | $\mathcal{O}(L \cdot d)$ |
+| 12GB VRAM 可行性 | ❌ | ✅ |
+
+**設計取捨**：我們將語意對齊從 feature-level（$\mathbf{v}_l$ 對齊）降為 weight-level（$\mathbf{W}$ 對齊）。這犧牲了部分精細度——正則化只作用在分類權重層，不影響 attention 層對病歷特徵的擷取。但換來了校內 GPU 可執行的運算量，且實驗證明（V6 Macro F1 = 38.42% vs 原始 CAML 4.9%）此簡化仍有效保留了語意引導的核心功能。
+
 ---
 
 ## 三、Macro F1 提升機制分析
