@@ -88,14 +88,82 @@ $$\mathbf{z} = \text{diag}(\mathbf{V} \mathbf{W}^\top) + \mathbf{b} \in \mathbb{
 
 $$\hat{\mathbf{y}} = \sigma(\mathbf{z})$$
 
-#### Loss Function
+#### Loss Function — 各模型對照
 
-$$\mathcal{L} = \underbrace{-\frac{1}{L}\sum_{l=1}^{L} \left[y_l \log \hat{y}_l + (1-y_l)\log(1-\hat{y}_l)\right]}_{\mathcal{L}_{\text{BCE}}} + \lambda \underbrace{\frac{1}{L}\|\mathbf{W} - \mathbf{E}\|_F^2}_{\mathcal{L}_{\text{reg}}}$$
+以下依模型版本逐一給出 loss function 之完整數學定義。
 
-- $\mathcal{L}_{\text{BCE}}$：multi-label binary cross-entropy
-- $\mathcal{L}_{\text{reg}}$：description regularization，以 Frobenius norm 限制分類權重 $\mathbf{W}$ 不偏離預先計算之標籤描述嵌入 $\mathbf{E}$
-- $\|\cdot\|_F$：Frobenius norm
-- $\lambda = 0.01$（V6）
+---
+
+**模型 A：V5.1（BERT CLS + BCE）**
+
+架構最簡：病歷文本經 BERT 編碼後取 `[CLS]` 向量，直接送入線性分類層。
+
+$$\mathbf{h} = \text{BERT}(\mathbf{x})_{\text{[CLS]}} \in \mathbb{R}^{d}$$
+
+$$\mathbf{z} = \mathbf{W}_{\text{cls}} \mathbf{h} + \mathbf{b} \in \mathbb{R}^{L}, \quad \hat{\mathbf{y}} = \sigma(\mathbf{z})$$
+
+$$\boxed{\mathcal{L}_{\text{V5.1}} = -\frac{1}{L}\sum_{l=1}^{L} \left[y_l \log \hat{y}_l + (1-y_l)\log(1-\hat{y}_l)\right]}$$
+
+- 純 multi-label binary cross-entropy
+- 無正則化項、無 label attention
+- 所有標籤共享同一份病歷表徵 $\mathbf{h}$
+
+---
+
+**模型 B：V6（BERT DR-CAML + BCE + Description Regularization）**
+
+$$\mathbf{H} = \text{BERT}(\mathbf{x}) \in \mathbb{R}^{n \times d}$$
+
+$$A = \text{softmax}_{\text{masked}}(\mathbf{H} \mathbf{A}_q) \in \mathbb{R}^{n \times L}$$
+
+$$\mathbf{V} = A^\top \mathbf{H} \in \mathbb{R}^{L \times d}$$
+
+$$\mathbf{z} = \text{diag}(\mathbf{V} \mathbf{W}^\top) + \mathbf{b}, \quad \hat{\mathbf{y}} = \sigma(\mathbf{z})$$
+
+$$\boxed{\mathcal{L}_{\text{V6}} = \underbrace{-\frac{1}{L}\sum_{l=1}^{L} \left[y_l \log \hat{y}_l + (1-y_l)\log(1-\hat{y}_l)\right]}_{\mathcal{L}_{\text{BCE}}} + \underbrace{0.01 \cdot \frac{1}{L}\|\mathbf{W} - \mathbf{E}\|_F^2}_{\mathcal{L}_{\text{reg}},\ \lambda=0.01}}$$
+
+- BCE 處理所有標籤之預測誤差（公平加權）
+- Description regularization 輕微引導（λ=0.01），讓模型以資料學習為主
+- 各標籤獨立 attention 空間避免高頻淹沒低頻
+
+---
+
+**模型 C：V6OC（BERT DR-CAML + Focal Loss + Description Regularization）**
+
+$$\boxed{\mathcal{L}_{\text{V6OC}} = \underbrace{-\frac{1}{L}\sum_{l=1}^{L} \alpha (1-\hat{y}_{t,l})^\gamma \cdot \left[y_l \log \hat{y}_l + (1-y_l)\log(1-\hat{y}_l)\right]}_{\mathcal{L}_{\text{Focal}}}}$$
+
+$$\boxed{+\ \underbrace{0.10 \cdot \frac{1}{L}\|\mathbf{W} - \mathbf{E}\|_F^2}_{\mathcal{L}_{\text{reg}},\ \lambda=0.10}}$$
+
+其中 $\hat{y}_{t,l} = y_l \cdot \hat{y}_l + (1-y_l) \cdot (1-\hat{y}_l)$（模型對正確類別之信心）。
+
+Focal Loss 參數：$\alpha = 0.25,\ \gamma = 2.0$。
+
+- Focal Loss 以 $(1-\hat{y}_{t,l})^\gamma$ 動態調節每個樣本之 loss 權重：
+  - 已學會的常見病（$\hat{y}_{t,l} \to 1$）→ 權重趨近 0，模型不再浪費容量
+  - 尚未學會的罕見病（$\hat{y}_{t,l} \to 0$）→ 權重趨近 1，強迫模型關注
+- λ 提高至 0.10：因 Focal Loss 內建之類別加權會使 $\mathbf{W}$ 偏離 $\mathbf{E}$，需較強正則化抗衡
+
+---
+
+**模型 D：MF20（同 V6OC，label 空間擴張至 2,873）**
+
+$$\boxed{\mathcal{L}_{\text{MF20}} = \mathcal{L}_{\text{Focal}}(\hat{\mathbf{y}}, \mathbf{y}; \alpha{=}0.25, \gamma{=}2.0) + 0.10 \cdot \frac{1}{L_{20}}\|\mathbf{W} - \mathbf{E}_{20}\|_F^2}$$
+
+其中 $L_{20} = 2,873$（MIN_FREQ=20 之標籤數），$\mathbf{E}_{20}$ 為對應之 label embeddings。
+
+- Loss 形式與 V6OC 相同，差別僅在 $\mathbf{W} \in \mathbb{R}^{2873 \times d}$ 與 $\mathbf{E}$ 維度增大
+- 此設定用於測試 label 空間擴張對 loss 收斂之影響（穩健性測試）
+
+---
+
+**各模型 Loss 對照總表**
+
+| 模型 | 分類 Loss | Reg (λ) | Label 數 | Loss 設計意圖 |
+|------|------|:---:|:---:|------|
+| V5.1 | BCE | — | 2,099 | CLS baseline，無語意補償 |
+| V6 | BCE | 0.01 | 2,099 | DR-CAML + 輕微語意引導 |
+| V6OC | **Focal** (γ=2) | 0.10 | 2,099 | Focal 處理長尾 + 強語意引導 |
+| MF20 | **Focal** (γ=2) | 0.10 | 2,873 | 同 V6OC，測試 label 空間擴張 |
 
 ---
 
