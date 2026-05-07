@@ -171,13 +171,15 @@ $$\boxed{\mathcal{L}_{\text{MF20}} = \mathcal{L}_{\text{Focal}}(\hat{\mathbf{y}}
 
 $$\mathbf{v}_l^{\text{desc}} = \text{CNN}(\text{description}_l)$$
 
-$$\mathcal{L}_{\text{orig}} = \mathcal{L}_{\text{BCE}} + \lambda \cdot \text{cosine\_distance}(\mathbf{v}_l^{\text{clinical}}, \mathbf{v}_l^{\text{desc}})$$
+$$\mathcal{L}_{\text{orig}} = \mathcal{L}_{\text{BCE}} + \lambda \cdot \text{cosine distance}(\mathbf{v}_l^{\text{clinical}}, \mathbf{v}_l^{\text{desc}})$$
 
 即每步訓練需將 $L$ 段標籤描述送進 CNN 編碼，與病歷表徵 $\mathbf{v}_l^{\text{clinical}}$ 做對比（contrastive）。
 
 **我們的簡化**：
 
-$$\mathbf{E}_l = \text{ClinicalBERT}(\text{description}_l) \quad \text{（事先計算，訓練中凍結）}$$
+$$\mathbf{E}_l = \text{ClinicalBERT}(\text{description}_l)$$
+
+（事先計算，訓練中凍結）
 
 $$\mathcal{L}_{\text{ours}} = \mathcal{L}_{\text{BCE/Focal}} + \lambda \cdot \underbrace{\frac{1}{L}\|\mathbf{W} - \mathbf{E}\|_F^2}_{\text{MSE on classification weights}}$$
 
